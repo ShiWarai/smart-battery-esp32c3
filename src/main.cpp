@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <WiFi.h>
 #include <WebServer.h>
-#include <WebSocketsClient.h>
+#include "WebSocketsClient.h"
 
 #define IDNUMB 1//идентификационный номер ус-ва
 #define DIV_R1 1
