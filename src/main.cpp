@@ -1,13 +1,14 @@
 #include <WiFi.h>
 #include <INA226.h>
 #include <ESPmDNS.h>
+//--------------НАСТРОЙКИ---------------
+#define IDBAT 1                         //id устр-ва
+const char* ssid = "A-415";             //WI-FI
+const char* password = "LongRedAlert5"; //Пароль от WI-FI
 
-#define IDBAT 1  //id устр-ва
-const char* ssid = "A-415";
-const char* password = "LongRedAlert5";
-
-const uint16_t port = 8090;
-const char * host = "192.168.1.108";
+const uint16_t port = 8090;             
+const char * hostname = "WORK-SHIWARAI";
+//---------------------------------------
 
 IPAddress HOSTIP;
 
@@ -21,9 +22,7 @@ void setup()
   
   Wire.begin();
   if (!INA.begin() )
-  {
-    Serial.println("it was not possible to connect to the voltammeter. Fix the error");
-  }
+  {Serial.println("it was not possible to connect to the voltammeter. Fix the error");}
   INA.setMaxCurrentShunt(1, 0.002);
   
   while (WiFi.status() != WL_CONNECTED) {
@@ -43,15 +42,22 @@ void setup()
 
 void loop()
 {
-     Serial.print("Hostname: ");
-     Serial.println(WiFi.getHostname());
-    while(!client.connected()){Serial.println("Connecting...");client.connect(host, port);delay(1000);}
-    
     while (HOSTIP.toString() == "0.0.0.0") {
     Serial.println("Resolving host...");
     delay(250);
-    HOSTIP = MDNS.queryHost("WORK-SHIWARAI");
+    HOSTIP = MDNS.queryHost(hostname);
     }
+    
+    //если потеряли связь с клиентом, то устонавливаем её заново
+    while(!client.connected()){Serial.println("Connecting...");client.connect(HOSTIP, port);delay(1000);}
+    
+    Serial.print("Hostname: ");
+    Serial.print(WiFi.getHostname());
+    Serial.print(" IP: ");
+    Serial.println(WiFi.localIP());
+    Serial.print("Сonnected to: ");
+    Serial.print(hostname);
+    Serial.print(" IP: ");
     Serial.println(HOSTIP.toString());
 
     //сообщение\/
