@@ -10,8 +10,6 @@ const uint16_t port = 8090;
 const char * hostname = "WORK-SHIWARAI";
 //---------------------------------------
 
-int charge=0;
-
 IPAddress HOSTIP;
 
 INA226 INA(0x40);
@@ -24,50 +22,39 @@ void setup()
   
   Wire.begin();
   if (!INA.begin() )
-  {Serial.println("it was not possible to connect to the voltammeter. Fix the error");}
+  {Serial.println("it was not possible to connect to the voltampermeter. Fix the error");}
   INA.setMaxCurrentShunt(1, 0.002);
   
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.println("...");
-  }
+  //подключение к WIFI
+  while (WiFi.status() != WL_CONNECTED) {delay(500);}
   Serial.print("WiFi connected with IP: ");
   Serial.println(WiFi.localIP());
 
 
-  while(mdns_init()!= ESP_OK){
-    delay(1000);
-    Serial.println("Starting MDNS...");
-}
+  while(mdns_init()!= ESP_OK){delay(1000);}
 
+//поиск ip адреса hostname
+  while (HOSTIP.toString() == "0.0.0.0") {
+  delay(250);
+  HOSTIP = MDNS.queryHost(hostname);
+  }
 }
 
 void loop()
 {
-    while (HOSTIP.toString() == "0.0.0.0") {
-    Serial.println("Resolving host...");
-    delay(250);
-    HOSTIP = MDNS.queryHost(hostname);
-    }
-    
     //если потеряли связь с клиентом, то устонавливаем её заново
-    while(!client.connected()){Serial.println("Connecting...");client.connect(HOSTIP, port);delay(1000);}
-    
-    Serial.print("Hostname: ");
-    Serial.print(WiFi.getHostname());
-    Serial.print(" IP: ");
-    Serial.println(WiFi.localIP());
-    Serial.print("Сonnected to: ");
-    Serial.print(hostname);
-    Serial.print(" IP: ");
-    Serial.println(HOSTIP.toString());
+    while(!client.connected()){client.connect(HOSTIP, port);delay(1000);}
 
-    map(charge,3.3,4.2,0,100);
-    
-    //сообщение\/
+    //   \/ сообщение по COM порту \/
+    Serial.println("{\"ID\":" + String(IDBAT)
+    + ", \"V\":" + String(INA.getBusVoltage())
+    + ", \"A\":" + String(INA.getCurrent_mA()) 
+    + ", \"Ch\":" + map(INA.getBusVoltage(),3.3,4.2,0,100) + "}");
+
+    //     \/ сообщение по WIFI \/
     client.print("{\"ID\":" + String(IDBAT)
     + ", \"V\":" + String(INA.getBusVoltage())
     + ", \"A\":" + String(INA.getCurrent_mA()) 
-    + ", \"Ch\":" + charge + "}");
+    + ", \"Ch\":" + map(INA.getBusVoltage(),3.3,4.2,0,100) + "}");
     delay(1000);
 }
