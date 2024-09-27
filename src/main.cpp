@@ -10,6 +10,8 @@ const uint16_t port = 8090;
 const char * hostname = "WORK-SHIWARAI";
 //---------------------------------------
 
+int charge=0;
+
 IPAddress HOSTIP;
 
 INA226 INA(0x40);
@@ -60,9 +62,12 @@ void loop()
     Serial.print(" IP: ");
     Serial.println(HOSTIP.toString());
 
+    map(charge,3.3,4.2,0,100);
+    
     //сообщение\/
     client.print("{\"ID\":" + String(IDBAT)
     + ", \"V\":" + String(INA.getBusVoltage())
-    + ", \"A\":" + String(INA.getCurrent_mA()) + "}");
+    + ", \"A\":" + String(INA.getCurrent_mA()) 
+    + ", \"Ch\":" + charge + "}");
     delay(1000);
 }
