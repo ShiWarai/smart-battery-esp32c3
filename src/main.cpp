@@ -2,8 +2,10 @@
 #include <INA226.h>
 #include <ESPmDNS.h>
 
+#define TRANSMISSION_FREQUENCY 100
+
 #define SERIALIZE_DATA(ID, V, A, P, C) "{\"ID\":" + ID + ", \"V\":" + V + ", \"A\":" + A + ", \"P\":" + P + ", \"C\":" + C + "}"
-#define FLOAT_MAP(value, in_min, in_max, out_min, out_max) (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+#define FLOAT_MAP(value, in_min, in_max, out_min, out_max) ((value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min)
 
 IPAddress HOSTIP;
 
@@ -30,31 +32,30 @@ void setup()
 	Serial.print("WiFi connected with IP: ");
 	Serial.println(WiFi.localIP());
 
-
-	while(mdns_init()!= ESP_OK){delay(1000);}
-
-	// поиск ip адреса hostname
-	while (HOSTIP.toString() == "0.0.0.0") {
-		delay(250);
-		HOSTIP = MDNS.queryHost(HOSTNAME);
-	}
+	// ожидание запуска mDNS
+	while(mdns_init()!= ESP_OK)
+		delay(1000);
 }
 
 void loop()
 {
-	delay(1000);
-	// если потеряли связь с клиентом, то устонавливаем её заново
-	if(!client.connected())
+	// поиск IP-адреса hostname
+	if (HOSTIP.toString() == "0.0.0.0") {
+		HOSTIP = MDNS.queryHost(HOSTNAME);
+	} else 	if(!client.connected()) // если потеряли связь с клиентом, то устонавливаем её заново
 	{
 		client.connect(HOSTIP, PORT);
-		return;
 	}
 
-	data = SERIALIZE_DATA(String(ID), INA.getBusVoltage(), INA.getCurrent(), INA.getPower(), floatMap(INA.getBusVoltage(),3.3,4.2,0.0,100.0));
+	data = SERIALIZE_DATA(String(ID), INA.getBusVoltage(), INA.getCurrent(), INA.getPower(), FLOAT_MAP(INA.getBusVoltage(),3.3,4.2,0.0,100.0));
 
 	//   \/ сообщение по COM порту \/
 	Serial.println(data);
 
 	//     \/ сообщение по WIFI \/
-	client.print(data);
+	if(client.connected()) {
+		client.print(data);
+	}
+
+	delay(TRANSMISSION_FREQUENCY);
 }
