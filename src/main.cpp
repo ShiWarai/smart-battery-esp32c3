@@ -40,6 +40,8 @@ String data;
 		// obtain voltage from power monitor and prepare values
 		double voltage = INA.getBusVoltage();
 		double p = min(100.0, max(0.0, FLOAT_MAP(voltage,3.2,4.2,0,100)));
+		String power = String(INA.getPower(),2);
+		power.trim();
 		
 		// create a string with formatted percentage value
 		String s;
@@ -64,7 +66,8 @@ String data;
 		oled.setFont(u8g2_font_spleen6x12_mr); // set smaller font
 		oled.drawStr(0, 31, s.c_str());
 		oled.drawStr(24, 31, "v");
-		oled.drawStr(33, 31, "0.00w");
+		oled.drawStr(33, 31, power.c_str());
+		oled.drawStr(57, 31, "w");
 		
 		// send frame buffer to the display
 		oled.sendBuffer();
