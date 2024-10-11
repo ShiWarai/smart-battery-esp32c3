@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "author": "Uri Shaked",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-xiao-esp32-c3", "id": "esp", "top": 38.97, "left": 13.78, "attrs": {} },
+    {
+      "type": "board-ssd1306",
+      "id": "oled1",
+      "top": 166.34,
+      "left": 9.83,
+      "attrs": { "i2cAddress": "0x3c" }
+    },
+    {
+      "type": "wokwi-pushbutton-6mm",
+      "id": "btn1",
+      "top": 164.2,
+      "left": -24.8,
+      "rotate": 90,
+      "attrs": { "color": "green" }
+    },
+    {
+      "type": "wokwi-pushbutton-6mm",
+      "id": "btn2",
+      "top": 164.2,
+      "left": 119.2,
+      "rotate": 90,
+      "attrs": { "color": "green", "bounce": "1" }
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "bz1",
+      "top": -36,
+      "left": 107.4,
+      "attrs": { "volume": "0.1" }
+    }
+  ],
+  "connections": [
+    [ "oled1:GND", "esp:GND", "black", [ "v-28.8", "h48", "v-57.6" ] ],
+    [ "oled1:VCC", "esp:5V", "red", [ "v-19.2", "h28.95", "v-96" ] ],
+    [ "oled1:SCL", "esp:D5", "green", [ "v-38.4", "h-66.9", "v-28.8" ] ],
+    [ "esp:D10", "bz1:2", "red", [ "h0" ] ],
+    [ "bz1:1", "esp:GND", "black", [ "v0" ] ],
+    [ "btn1:2.l", "esp:D2", "purple", [ "v0" ] ],
+    [ "btn2:2.l", "btn1:2.l", "purple", [ "v0" ] ],
+    [ "oled1:SDA", "esp:D4", "yellow", [ "v-28.8", "h-67.13", "v-48" ] ]
+  ],
+  "dependencies": {}
+}

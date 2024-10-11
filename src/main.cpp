@@ -1,7 +1,13 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <INA226.h>
 #include <ESPmDNS.h>
+
+#ifndef WOKWI
+#include <INA226.h>
+#else
+#include <INA226_wokwi.hpp>
+#endif
+
 #ifndef DEBUG
 #include <U8g2lib.h>
 #endif
@@ -128,11 +134,18 @@ void setup()
 void loop()
 {
 	// поиск IP-адреса hostname
+	#ifdef HOSTNAME
 	if (HOSTIP.toString() == "0.0.0.0") {
 		HOSTIP = MDNS.queryHost(HOSTNAME);
-	} else 	if(!client.connected()) // если потеряли связь с клиентом, то устонавливаем её заново
+	} else
+	#endif
+	if(!client.connected()) // если потеряли связь с клиентом, то устонавливаем её заново
 	{
-		client.connect(HOSTIP, PORT);
+		#ifdef HOSTNAME
+			client.connect(HOSTIP, PORT);
+		#else
+			client.connect("host.wokwi.internal", PORT);
+		#endif
 	}
 
 	data = SERIALIZE_DATA(String(ID), INA.getBusVoltage(), INA.getCurrent(), INA.getPower(), FLOAT_MAP(INA.getBusVoltage(),3.3,4.2,0.0,100.0));
