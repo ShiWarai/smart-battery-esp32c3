@@ -28,7 +28,7 @@ int INA226::setMaxCurrentShunt(float maxCurrent, float shunt, bool normalize) {
 
 //  Core functions
 float INA226::getBusVoltage() {
-    return generateRandomFloat(7.4f, 8.4f);
+    return generateRandomFloat(3.0f, 4.2f);
 }
 
 float INA226::getShuntVoltage() {
