@@ -1,7 +1,25 @@
 #include <INA226_wokwi.hpp>
 
-float generateRandomFloat(float min, float max) {
-    return min + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX/(max-min)));
+const int MAX_COUNTER = 100;
+int sin_generator_counter = 0;
+int cos_generator_counter = 0;
+
+float generateSinusoidalValue(float min_v, float max_v) {
+    float amplitude = (max_v - min_v) / 2.0;
+    float offset = min_v + amplitude;
+    float radians = static_cast<float>(sin_generator_counter) * M_PI / 50.0; // преобразование счетчика в радианы
+
+    sin_generator_counter = (sin_generator_counter + 1) % MAX_COUNTER;
+    return offset + amplitude * sin(radians);
+}
+
+float generateCosinusoidalValue(float min_v, float max_v) {
+    float amplitude = (max_v - min_v) / 2.0;
+    float offset = min_v + amplitude;
+    float radians = static_cast<float>(cos_generator_counter) * M_PI / 50.0; // преобразование счетчика в радианы
+
+    cos_generator_counter = (cos_generator_counter + 1) % MAX_COUNTER;
+    return offset + amplitude * cos(radians);
 }
 
 INA226::INA226(const uint8_t address, TwoWire *wire) {
@@ -24,11 +42,13 @@ int INA226::setMaxCurrentShunt(float maxCurrent, float shunt, bool normalize) {
     this->_maxCurrent = maxCurrent;
     this->_shunt = shunt;
     this->_current_LSB = 1.0;
+
+    return 1;
 }
 
 //  Core functions
 float INA226::getBusVoltage() {
-    return generateRandomFloat(3.0f, 4.2f);
+    return generateSinusoidalValue(3.9f, 4.0f);
 }
 
 float INA226::getShuntVoltage() {
@@ -36,7 +56,7 @@ float INA226::getShuntVoltage() {
 }
 
 float INA226::getCurrent() {
-    return generateRandomFloat(0.0f, 10.0f);
+    return generateCosinusoidalValue(0.5f, 1.0f);
 }
 
 float INA226::getPower() {
