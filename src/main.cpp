@@ -1,166 +1,157 @@
-#include <Arduino.h>
-#include <WiFi.h>
-#include <ESPmDNS.h>
-
-#ifndef WOKWI
-#include <INA226.h>
-#else
-#include <INA226_wokwi.hpp>
-#endif
-
-#ifndef DEBUG
-#include <U8g2lib.h>
-#endif
-
-const int TRANSMISSION_FREQUENCY = 200;
-
-const int buzzer = D10;
-const int btn = D2;
-const int oled_pwr = D9;
-const int i2c_scl = D5;
-const int i2c_sda = D4;
+#include "main.hpp"
 
 
-#define SERIALIZE_DATA(ID, V, A, P, C) "{\"ID\":" + ID + ", \"V\":" + V + ", \"A\":" + A + ", \"P\":" + P + ", \"C\":" + C + "}"
-#define FLOAT_MAP(value, in_min, in_max, out_min, out_max) ((value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min)
-
-IPAddress HOSTIP;
-
-INA226 INA(0x40);
-#ifndef DEBUG
-	U8G2_SSD1306_64X32_1F_F_HW_I2C oled(U8G2_R0, U8X8_PIN_NONE, i2c_scl, i2c_sda); // define 64x32 OLED display (with SSD1306 internal controller IC) in I2C mode
-#endif
-
-WiFiClient client;
-String data;
-
-#ifndef DEBUG
-	void print_status(bool changeContrast = false, byte contrast = 255) // routine for printing simple interface on an OLED display
-	{
-		// clear frame buffer and set display brightness if needed
-		oled.clearBuffer();
-		if (changeContrast) {
-			oled.setContrast(contrast);
-		}
-
-		// obtain voltage from power monitor and prepare values
-		double voltage = INA.getBusVoltage();
-		double p = min(100.0, max(0.0, FLOAT_MAP(voltage,3.2,4.2,0,100)));
-		String power = String(INA.getPower(),2);
-		power.trim();
-		
-		// create a string with formatted percentage value
-		String s;
-		s = String(p,0);
-		s.trim();
-
-		// display voltage based battery charge percentage, accounting for the number of digits
-		oled.setFont(u8g2_font_spleen16x32_mu); // set big font
-		if(s.length() == 1) {
-			oled.drawStr(34, 20, s.c_str());
-		} else if(s.length() == 2) {
-			oled.drawStr(18, 20, s.c_str());
-		} else {
-			oled.drawStr(2, 20, s.c_str());
-		}
-		oled.drawStr(50, 20, "%");
-
-		// prepare a string with formatted voltage value
-		s = String(voltage,2);
-		
-		// display true battery voltage and fake power value on the bottom
-		oled.setFont(u8g2_font_spleen6x12_mr); // set smaller font
-		oled.drawStr(0, 31, s.c_str());
-		oled.drawStr(24, 31, "v");
-		oled.drawStr(33, 31, power.c_str());
-		oled.drawStr(57, 31, "w");
-		
-		// send frame buffer to the display
-		oled.sendBuffer();
+#ifdef WITH_DISPLAY
+void printStatus(INA226_DATA data, bool changeContrast = false, byte contrast = 255) // routine for printing simple interface on an OLED display
+{
+	// clear frame buffer and set display brightness if needed
+	oled.clearBuffer();
+	if (changeContrast) {
+		oled.setContrast(contrast);
 	}
 
-	// helper function for creating a simple fade-in animation on the display (WARNING: need to rewrite this, since using blocking delays!!!)
-	void oled_fade_in() {
-		oled.setContrast(0);
-		oled.setPowerSave(0);
-		for (int i = 0; i < 256; i += 10) {
-			oled.setContrast(i);
-			delay(30);
-		}
-		oled.setContrast(255);
+	// obtain voltage from power monitor and prepare values
+	double voltage = data.voltage;
+	double p = data.capacity;
+	String power = String(data.power,2);
+	power.trim();
+	
+	// create a string with formatted percentage value
+	String s;
+	s = String(p,0);
+	s.trim();
+
+	// display voltage based battery charge percentage, accounting for the number of digits
+	oled.setFont(u8g2_font_spleen16x32_mu); // set big font
+	if(s.length() == 1) {
+		oled.drawStr(34, 20, s.c_str());
+	} else if(s.length() == 2) {
+		oled.drawStr(18, 20, s.c_str());
+	} else {
+		oled.drawStr(2, 20, s.c_str());
 	}
+	oled.drawStr(50, 20, "%");
 
-
-
-	// helper function for creating a simple fade-out animation on the display (WARNING: need to rewrite this, since using blocking delays!!!)
-	void oled_fade_out() {
-		for (int i = 255; i >= 0; i -= 10) {
-			oled.setContrast(i);
-			delay(30);
-		}
-		oled.setContrast(0);
-		oled.setPowerSave(1);
-	}
+	// prepare a string with formatted voltage value
+	s = String(voltage,2);
+	
+	// display true battery voltage and fake power value on the bottom
+	oled.setFont(u8g2_font_spleen6x12_mr); // set smaller font
+	oled.drawStr(0, 31, s.c_str());
+	oled.drawStr(24, 31, "v");
+	oled.drawStr(33, 31, power.c_str());
+	oled.drawStr(57, 31, "w");
+	
+	// send frame buffer to the display
+	oled.sendBuffer();
+}
 #endif
 
 
 void setup()
 {
-	Serial.begin(115200);
-	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-	// Display
-	#ifndef DEBUG
-		digitalWrite(oled_pwr, HIGH);
-		delay(100);
-		oled.begin();
+	xTaskCreate(sensor_task, "Sensor task", 1024, NULL, 1, NULL);
+	xTaskCreate(usb_task, "USB task", 2048, NULL, 1, NULL);
+	xTaskCreate(wireless_task, "Wireless task", 4096, NULL, 1, NULL);
+	#ifdef WITH_DISPLAY
+	xTaskCreate(display_task, "Display task", 4096, NULL, 1, NULL);
 	#endif
+}
 
-	// INA226
-	if (!INA.begin())
+void sensor_task(void *pvParameters) {
+
+	if (!INA.begin() && Serial.isConnected())
 		Serial.println("it was not possible to connect to the voltampermeter. Fix the error");
-	INA.setMaxCurrentShunt(60, 0.00125, false);
-	
-	// подключение к WIFI
-	while (WiFi.status() != WL_CONNECTED) {delay(500);}
-	Serial.print("WiFi connected with IP: ");
-	Serial.println(WiFi.localIP());
+	else
+		INA.setMaxCurrentShunt(60, 0.00125, false);
 
-	// ожидание запуска mDNS
-	while(mdns_init()!= ESP_OK)
-		delay(1000);
+	while(true) {
+		raw_data.readData(&INA);
+
+		vTaskDelay(TRANSMISSION_FREQUENCY);
+	}
 }
 
-void loop()
-{
-	// поиск IP-адреса hostname
-	#ifdef HOSTNAME
-	if (HOSTIP.toString() == "0.0.0.0") {
-		HOSTIP = MDNS.queryHost(HOSTNAME);
-	} else
-	#endif
-	if(!client.connected()) // если потеряли связь с клиентом, то устонавливаем её заново
-	{
+void usb_task(void *pvParameters) {
+	Serial.begin(115200);
+
+	while(true) {
+		if(Serial.isConnected())
+		{
+			Serial.println(raw_data.getJSON());
+		}
+
+		vTaskDelay(TRANSMISSION_FREQUENCY);
+	}
+}
+
+void wireless_task(void *pvParameters) {	
+	IPAddress HOSTIP;
+	WiFiClient client;
+
+	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+	
+	while (WiFi.status() != WL_CONNECTED) vTaskDelay(500);
+	// Serial.print("WiFi connected with IP: ");
+	// Serial.println(WiFi.localIP());
+
+	while(mdns_init()!= ESP_OK) vTaskDelay(500); // ожидание запуска mDNS
+
+	while(true) {
+		// поиск IP-адреса hostname
 		#ifdef HOSTNAME
-			client.connect(HOSTIP, PORT);
-		#else
-			client.connect("host.wokwi.internal", PORT);
+		if (HOSTIP.toString() == "0.0.0.0") {
+			HOSTIP = MDNS.queryHost(HOSTNAME);
+		} else
 		#endif
+		if(!client.connected()) // если потеряли связь с клиентом, то устонавливаем её заново
+		{
+			#ifdef HOSTNAME
+				client.connect(HOSTIP, PORT);
+			#else
+				client.connect("host.wokwi.internal", PORT);
+			#endif
+		} else {
+			client.print(raw_data.getJSON());
+		}
+
+		vTaskDelay(TRANSMISSION_FREQUENCY);
 	}
-
-	data = SERIALIZE_DATA(String(ID), INA.getBusVoltage(), INA.getCurrent(), INA.getPower(), FLOAT_MAP(INA.getBusVoltage(),3.3,4.2,0.0,100.0));
-
-	//   \/ сообщение по COM порту \/
-	Serial.println(data);
-
-	//     \/ сообщение по WIFI \/
-	if(client.connected()) {
-		client.print(data);
-	}
-	
-	#ifndef DEBUG
-		print_status();
-	#endif
-
-	delay(TRANSMISSION_FREQUENCY);
 }
+
+#ifdef WITH_DISPLAY
+void display_task(void *pvParameters) {
+	bool display_enabled = false;
+
+	pinMode(OLED_PWR_PIN, OUTPUT);
+	pinMode(BUTTONS_PIN, INPUT_PULLDOWN);
+	pinMode(BUZZER_PIN, OUTPUT);
+
+	digitalWrite(OLED_PWR_PIN, HIGH);
+	vTaskDelay(100);
+	oled.begin();
+	vTaskDelay(100);
+	digitalWrite(OLED_PWR_PIN, LOW);
+
+	while(true) {
+		if(!digitalRead(BUTTONS_PIN))
+		{
+			if(!display_enabled) {
+				digitalWrite(OLED_PWR_PIN, HIGH);
+				display_enabled = true;
+				vTaskDelay(100);
+			}
+
+			for(int i = 0; i < (5000/TRANSMISSION_FREQUENCY); i++)
+			{
+				printStatus(raw_data);
+				vTaskDelay(TRANSMISSION_FREQUENCY);
+			}
+		} else {
+			oled.clearDisplay();
+			digitalWrite(OLED_PWR_PIN, LOW);
+			display_enabled = false;
+		}
+	}
+}
+#endif
