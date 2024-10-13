@@ -50,15 +50,21 @@ void printStatus(INA226_DATA data, bool changeContrast = false, byte contrast = 
 
 void setup()
 {
-	xTaskCreate(sensor_task, "Sensor task", 1024, NULL, 1, NULL);
-	xTaskCreate(usb_task, "USB task", 2048, NULL, 1, NULL);
-	xTaskCreate(wireless_task, "Wireless task", 4096, NULL, 1, NULL);
+	xTaskCreate(preferencesTask, "Preferences task", 4096, NULL, 1, NULL);
+
+	while(BATTERY_ID == 0) vTaskDelay(100); // Ожидаем загрузки настроек в ОЗУ
+
+	xTaskCreate(sensorTask, "Sensor task", 2048, NULL, 1, NULL);
+	vTaskDelay(100);
+	xTaskCreate(usbTask, "USB task", 2048, NULL, 1, NULL);
+	xTaskCreate(wirelessTask, "Wireless task", 4096, NULL, 1, NULL);
 	#ifdef WITH_DISPLAY
-	xTaskCreate(display_task, "Display task", 4096, NULL, 1, NULL);
+	xTaskCreate(displayTask, "Display task", 4096, NULL, 1, NULL);
 	#endif
 }
 
-void sensor_task(void *pvParameters) {
+void sensorTask(void *pvParameters) {
+	raw_data = new INA226_DATA(BATTERY_ID);
 
 	if (!INA.begin() && Serial.isConnected())
 		Serial.println("it was not possible to connect to the voltampermeter. Fix the error");
@@ -66,26 +72,28 @@ void sensor_task(void *pvParameters) {
 		INA.setMaxCurrentShunt(60, 0.00125, false);
 
 	while(true) {
-		raw_data.readData(&INA);
+		raw_data->readData(&INA);
 
 		vTaskDelay(TRANSMISSION_FREQUENCY);
 	}
 }
 
-void usb_task(void *pvParameters) {
+void usbTask(void *pvParameters) {
 	Serial.begin(115200);
 
 	while(true) {
 		if(Serial.isConnected())
-		{
-			Serial.println(raw_data.getJSON());
+		{	
+			// if(Serial.available()) // Позже сделаем возможность прерывать поток
+			// 	Serial.print(".");
+			Serial.println(raw_data->getJSON());
 		}
 
 		vTaskDelay(TRANSMISSION_FREQUENCY);
 	}
 }
 
-void wireless_task(void *pvParameters) {	
+void wirelessTask(void *pvParameters) {	
 	IPAddress HOSTIP;
 	WiFiClient client;
 
@@ -112,7 +120,7 @@ void wireless_task(void *pvParameters) {
 				client.connect("host.wokwi.internal", PORT);
 			#endif
 		} else {
-			client.print(raw_data.getJSON());
+			client.print(raw_data->getJSON());
 		}
 
 		vTaskDelay(TRANSMISSION_FREQUENCY);
@@ -120,7 +128,7 @@ void wireless_task(void *pvParameters) {
 }
 
 #ifdef WITH_DISPLAY
-void display_task(void *pvParameters) {
+void displayTask(void *pvParameters) {
 	bool display_enabled = false;
 
 	pinMode(OLED_PWR_PIN, OUTPUT);
@@ -144,7 +152,7 @@ void display_task(void *pvParameters) {
 
 			for(int i = 0; i < (5000/TRANSMISSION_FREQUENCY); i++)
 			{
-				printStatus(raw_data);
+				printStatus(*raw_data);
 				vTaskDelay(TRANSMISSION_FREQUENCY);
 			}
 		} else {
@@ -155,3 +163,39 @@ void display_task(void *pvParameters) {
 	}
 }
 #endif
+
+void preferencesTask(void *pvParameters) {
+	Preferences preferences;
+
+	preferences.begin("pref");
+
+	if(!preferences.isKey("id")) { // Первичная инициализация настроек
+		preferences.putUShort("id", ID);
+		preferences.putString("key", ACCESS_KEY);
+	}
+
+	// Загрузка настроек
+	if(preferences.isKey("id")) {
+		BATTERY_ID = preferences.getUShort("id");
+	}
+
+	preferences.end();
+
+	while(true) {
+		preferences.begin("pref", true); // отключение записи!
+
+		// if(preferences.isKey("key"))
+		// {
+		// 	Serial.print("Key: ");
+		// 	Serial.println(preferences.getString("key"));
+		// }
+
+		preferences.end();
+
+		vTaskDelay(1000);
+	}
+
+	// Erase memory
+	// nvs_flash_erase();
+ 	// nvs_flash_init();
+}

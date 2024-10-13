@@ -4,6 +4,8 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include <Preferences.h>
+#include <nvs_flash.h>
 
 #ifndef WOKWI
 #include <INA226.h>
@@ -24,6 +26,7 @@ INA226 INA(0x40);
 #endif
 
 const int TRANSMISSION_FREQUENCY = 200;
+unsigned short BATTERY_ID; // Изначально пустая переменная с нулём
 
 class INA226_DATA {
 public:
@@ -70,16 +73,17 @@ private:
 	}
 };
 
-INA226_DATA raw_data(ID);
+INA226_DATA *raw_data = nullptr;
 
 
 // Tasks
-void sensor_task(void *pvParameters);
-void usb_task(void *pvParameters);
-void wireless_task(void *pvParameters);
+void sensorTask(void *pvParameters);
+void usbTask(void *pvParameters);
+void wirelessTask(void *pvParameters);
 #ifdef WITH_DISPLAY
-void display_task(void *pvParameters);
+void displayTask(void *pvParameters);
 #endif
+void preferencesTask(void *pvParameters);
 
 
 // Functions
