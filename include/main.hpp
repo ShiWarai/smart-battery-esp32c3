@@ -25,8 +25,10 @@ INA226 INA(0x40);
 	U8G2_SSD1306_64X32_1F_F_HW_I2C oled(U8G2_R0, U8X8_PIN_NONE, OLED_SCL, OLED_SDA); // define 64x32 OLED display (with SSD1306 internal controller IC) in I2C mode
 #endif
 
+QueueHandle_t settingsQueue;
 const int TRANSMISSION_FREQUENCY = 200;
 unsigned short BATTERY_ID; // Изначально пустая переменная с нулём
+String ACCESS_KEY;
 
 class INA226_DATA {
 public:

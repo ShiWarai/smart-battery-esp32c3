@@ -47,9 +47,120 @@ void printStatus(INA226_DATA data, bool changeContrast = false, byte contrast = 
 }
 #endif
 
+void clearInputBuffer() {
+    while (Serial.available())
+        Serial.read();
+}
+
+void settings_menu();
+
+typedef struct {
+    String key;
+    String value;
+} SettingUpdate;
+
+void com_menu() {
+	clearInputBuffer();
+
+    int choice;
+    while (true) {
+        // Вывод меню
+        Serial.println("Меню:");
+        Serial.println("1) Настройки");
+        Serial.println("2) Сброс");
+        Serial.println("0) Выйти");
+        Serial.print("Выберите вариант: ");
+        
+        while (!Serial.available()); // Ожидание ввода
+        choice = Serial.parseInt();
+        Serial.read(); // Очистка буфера
+
+        switch (choice) {
+            case 1:
+                settings_menu();
+                break;
+            case 2:
+				nvs_flash_erase();
+				nvs_flash_init();
+                ESP.restart(); // Перезапуск ESP32
+                break;
+            default:
+				clearInputBuffer();
+                return;
+        }
+    }
+}
+
+void settings_menu() {
+    int setting_choice;
+    unsigned short id;
+    char hostname[50];
+    unsigned short frequency;
+    char wifi[50];
+	SettingUpdate update;
+
+    while (true) {
+        // Вывод меню настроек
+        Serial.println("Настройки:");
+        Serial.println("1) ID");
+        Serial.println("2) hostname");
+        Serial.println("3) transmission frequency");
+        Serial.println("4) WiFi");
+        Serial.println("0) Назад");
+        Serial.println("Выберите вариант: ");
+        
+        while (!Serial.available()); // Ожидание ввода
+        setting_choice = Serial.parseInt();
+        Serial.read(); // Очистка буфера
+
+        
+        switch (setting_choice) {
+            case 1:
+                Serial.print("Введите новый ID: ");
+                while (!Serial.available());
+                id = Serial.parseInt();
+
+                update.key = "id";
+                update.value = id;
+                xQueueSend(settingsQueue, &update, portMAX_DELAY);
+                break;
+            case 2:
+                Serial.print("Введите новый hostname: ");
+                while (!Serial.available());
+                Serial.readBytesUntil('\n', hostname, sizeof(hostname));
+
+                update.key = "hostname";
+                update.value = hostname;
+                xQueueSend(settingsQueue, &update, portMAX_DELAY);
+                break;
+            case 3:
+                Serial.print("Введите новую частоту передачи: ");
+                while (!Serial.available());
+                frequency = Serial.parseInt();
+
+                update.key = "frequency";
+                update.value = frequency;
+                xQueueSend(settingsQueue, &update, portMAX_DELAY);
+                break;
+            case 4:
+                Serial.print("Введите новый WiFi: ");
+                while (!Serial.available());
+                Serial.readBytesUntil('\n', wifi, sizeof(wifi));
+
+                update.key = "wifi";
+                update.value = wifi;
+                xQueueSend(settingsQueue, &update, portMAX_DELAY);
+                break;
+            default:
+                clearInputBuffer();
+				return;
+        }
+    }
+}
 
 void setup()
 {
+	settingsQueue = xQueueCreate(10, sizeof(SettingUpdate));
 	xTaskCreate(preferencesTask, "Preferences task", 4096, NULL, 1, NULL);
 
 	while(BATTERY_ID == 0) vTaskDelay(100); // Ожидаем загрузки настроек в ОЗУ
@@ -57,7 +168,7 @@ void setup()
 	xTaskCreate(sensorTask, "Sensor task", 2048, NULL, 1, NULL);
 	vTaskDelay(100);
 	xTaskCreate(usbTask, "USB task", 2048, NULL, 1, NULL);
-	xTaskCreate(wirelessTask, "Wireless task", 4096, NULL, 1, NULL);
+	xTaskCreate(wirelessTask, "Wireless task", 8196, NULL, 1, NULL);
 	#ifdef WITH_DISPLAY
 	xTaskCreate(displayTask, "Display task", 4096, NULL, 1, NULL);
 	#endif
@@ -84,8 +195,8 @@ void usbTask(void *pvParameters) {
 	while(true) {
 		if(Serial.isConnected())
 		{	
-			// if(Serial.available()) // Позже сделаем возможность прерывать поток
-			// 	Serial.print(".");
+			if(Serial.available()) // Позже сделаем возможность прерывать поток
+				com_menu();
 			Serial.println(raw_data->getJSON());
 		}
 
@@ -166,36 +277,34 @@ void displayTask(void *pvParameters) {
 
 void preferencesTask(void *pvParameters) {
 	Preferences preferences;
+	SettingUpdate update;
 
-	preferences.begin("pref");
+	preferences.begin("pref", false);
 
 	if(!preferences.isKey("id")) { // Первичная инициализация настроек
 		preferences.putUShort("id", ID);
-		preferences.putString("key", ACCESS_KEY);
+		preferences.putString("access_key", DEFAULT_ACCESS_KEY);
 	}
 
 	// Загрузка настроек
 	if(preferences.isKey("id")) {
 		BATTERY_ID = preferences.getUShort("id");
+		ACCESS_KEY = preferences.getString("access_key");
 	}
 
 	preferences.end();
 
 	while(true) {
-		preferences.begin("pref", true); // отключение записи!
+		if (xQueueReceive(settingsQueue, &update, portMAX_DELAY)) {
+			preferences.begin("pref", false);
+			if (update.key == "id" || update.key == "frequency") {
+				preferences.putUShort(update.key.c_str(), update.value.toInt());
+			} else {
+				preferences.putString(update.key.c_str(), update.value);
+			}
+			preferences.end();
+		}
 
-		// if(preferences.isKey("key"))
-		// {
-		// 	Serial.print("Key: ");
-		// 	Serial.println(preferences.getString("key"));
-		// }
-
-		preferences.end();
-
-		vTaskDelay(1000);
+		vTaskDelay(100);
 	}
-
-	// Erase memory
-	// nvs_flash_erase();
- 	// nvs_flash_init();
 }
