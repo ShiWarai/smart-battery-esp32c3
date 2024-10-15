@@ -1,0 +1,35 @@
+#include "wireless_controller/wireless_controller.hpp"
+
+void WirelessController::wirelessTask(void *pvParameters) {	
+	IPAddress HOSTIP;
+	WiFiClient client;
+
+	WiFi.begin(SETTINGS.wifi_ssid, SETTINGS.wifi_password);
+	
+	while (WiFi.status() != WL_CONNECTED) vTaskDelay(500);
+	// Serial.print("WiFi connected with IP: ");
+	// Serial.println(WiFi.localIP());
+
+	while(mdns_init()!= ESP_OK) vTaskDelay(500); // ожидание запуска mDNS
+
+	while(true) {
+		// поиск IP-адреса hostname
+		#ifdef HOSTNAME
+		if (HOSTIP.toString() == "0.0.0.0") {
+			HOSTIP = MDNS.queryHost(HOSTNAME);
+		} else
+		#endif
+		if(!client.connected()) // если потеряли связь с клиентом, то устонавливаем её заново
+		{
+			#ifdef HOSTNAME
+				client.connect(HOSTIP, PORT);
+			#else
+				client.connect("host.wokwi.internal", PORT);
+			#endif
+		} else {
+			client.print(raw_data->getJSON());
+		}
+
+		vTaskDelay(SETTINGS.wireless_transmition_delay);
+	}
+}

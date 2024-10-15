@@ -1,4 +1,4 @@
-#include <INA226_wokwi.hpp>
+#include "sensor_controller/INA226_wokwi.hpp"
 
 const int MAX_COUNTER = 100;
 int sin_generator_counter = 0;
