@@ -40,7 +40,7 @@ void UsbController::com_menu() {
 
 void UsbController::settings_menu() {
     int setting_choice;
-    unsigned short id;
+    uint32_t id;
     char hostname[50];
     unsigned short frequency;
     char wifi[50];
@@ -50,9 +50,6 @@ void UsbController::settings_menu() {
         // Вывод меню настроек
         Serial.println("Настройки:");
         Serial.println("1) ID");
-        Serial.println("2) hostname");
-        Serial.println("3) transmission frequency");
-        Serial.println("4) WiFi");
         Serial.println("0) Назад");
         Serial.println("Выберите вариант: ");
         
@@ -67,37 +64,10 @@ void UsbController::settings_menu() {
                 while (!Serial.available());
                 id = Serial.parseInt();
 
-                update.key = "id";
-                update.value = id;
-                xQueueSend(settingsQueue, &update, portMAX_DELAY);
+                update.key = SETTING_TYPE::battery_id;
+                update.value = String(id);
+                xQueueSend(settingUpdateQueue, &update, portMAX_DELAY);
                 vTaskDelay(10);
-                break;
-            case 2:
-                Serial.print("Введите новый hostname: ");
-                while (!Serial.available());
-                Serial.readBytesUntil('\n', hostname, sizeof(hostname));
-
-                update.key = "hostname";
-                update.value = hostname;
-                xQueueSend(settingsQueue, &update, portMAX_DELAY);
-                break;
-            case 3:
-                Serial.print("Введите новую частоту передачи: ");
-                while (!Serial.available());
-                frequency = Serial.parseInt();
-
-                update.key = "frequency";
-                update.value = frequency;
-                xQueueSend(settingsQueue, &update, portMAX_DELAY);
-                break;
-            case 4:
-                Serial.print("Введите новый WiFi: ");
-                while (!Serial.available());
-                Serial.readBytesUntil('\n', wifi, sizeof(wifi));
-
-                update.key = "wifi";
-                update.value = wifi;
-                xQueueSend(settingsQueue, &update, portMAX_DELAY);
                 break;
             default:
                 clearInputBuffer();
@@ -117,6 +87,6 @@ void UsbController::usbTask(void *pvParameters) {
 			Serial.println(raw_data->getJSON());
         }
 
-		vTaskDelay(SETTINGS.usb_transmition_delay);
+		vTaskDelay(settings.usb_delay);
 	}
 }

@@ -13,7 +13,7 @@
 
 class INA226Data {
 public:
-	INA226Data(unsigned short id) {
+	INA226Data(uint32_t* id) {
 		this->id = id;
 	};
 	
@@ -30,7 +30,7 @@ public:
 
 	String getJSON() {
 		// Заполняем JSON-документ
-		json["ID"] = this->id;
+		json["ID"] = *(this->id);
 		json["V"] = round2(this->voltage);
 		json["A"] = round2(this->current);
 		json["P"] = round2(this->power);
@@ -41,7 +41,7 @@ public:
 		return buffer;
 	};
 
-	unsigned short id;
+	uint32_t *id;
 	float voltage;
 	float current;
 	float power;

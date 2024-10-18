@@ -4,7 +4,7 @@ void WirelessController::wirelessTask(void *pvParameters) {
 	IPAddress HOSTIP;
 	WiFiClient client;
 
-	WiFi.begin(SETTINGS.wifi_ssid, SETTINGS.wifi_password);
+	WiFi.begin(settings.wifi_ssid, settings.wifi_password);
 	
 	while (WiFi.status() != WL_CONNECTED) vTaskDelay(500);
 	// Serial.print("WiFi connected with IP: ");
@@ -30,6 +30,6 @@ void WirelessController::wirelessTask(void *pvParameters) {
 			client.print(raw_data->getJSON());
 		}
 
-		vTaskDelay(SETTINGS.wireless_transmition_delay);
+		vTaskDelay(settings.wireless_delay);
 	}
 }

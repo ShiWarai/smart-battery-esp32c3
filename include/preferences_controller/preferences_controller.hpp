@@ -5,8 +5,6 @@
 
 class PreferencesController
 {
-    public:
-        static void preferencesTask(void *pvParameters);
-    private:
-        
+public:
+    static void preferencesTask(void *pvParameters);
 };

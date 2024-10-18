@@ -7,10 +7,10 @@
 
 class UsbController
 {
-    public:
-        static void usbTask(void *pvParameters);
-    private:
-        static void clearInputBuffer();
-        static void com_menu();
-        static void settings_menu();
+public:
+    static void usbTask(void *pvParameters);
+private:
+    static void clearInputBuffer();
+    static void com_menu();
+    static void settings_menu();
 };

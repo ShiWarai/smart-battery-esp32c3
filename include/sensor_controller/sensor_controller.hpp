@@ -11,6 +11,6 @@
 
 class SensorController
 {
-    public:
-        static void sensorTask(void *pvParameters);
+public:
+    static void sensorTask(void *pvParameters);
 };

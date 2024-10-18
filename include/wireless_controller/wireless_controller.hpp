@@ -7,8 +7,6 @@
 
 class WirelessController
 {
-    public:
-        static void wirelessTask(void *pvParameters);
-    private:
-        
+public:
+    static void wirelessTask(void *pvParameters);
 };

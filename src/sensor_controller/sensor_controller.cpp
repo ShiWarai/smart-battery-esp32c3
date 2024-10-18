@@ -5,7 +5,7 @@ void SensorController::sensorTask(void *pvParameters) {
 
 	INA.begin();
 
-    raw_data = new INA226Data(SETTINGS.battery_id);
+    raw_data = new INA226Data(&settings.battery_id);
 
 	if (!INA.begin() && Serial.isConnected())
 		Serial.println("it was not possible to connect to the voltampermeter. Fix the error");
@@ -15,6 +15,6 @@ void SensorController::sensorTask(void *pvParameters) {
 	while(true) {
 		raw_data->readData(&INA);
 
-		vTaskDelay(SETTINGS.sensor_read_delay);
+		vTaskDelay(settings.sensor_delay);
 	}
 }
