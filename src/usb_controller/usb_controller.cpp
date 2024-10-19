@@ -40,10 +40,8 @@ void UsbController::com_menu() {
 
 void UsbController::settings_menu() {
     int setting_choice;
-    uint32_t id;
-    char hostname[50];
-    unsigned short frequency;
-    char wifi[50];
+    DECLARE_SETTING_TYPES_VARIANT(UNIQUE_SETTINGS_TYPES) buffer;
+
 	SettingUpdate update;
 
     while (true) {
@@ -62,10 +60,10 @@ void UsbController::settings_menu() {
             case 1:
                 Serial.print("Введите новый ID: ");
                 while (!Serial.available());
-                id = Serial.parseInt();
 
+                update.value = (uint32_t)Serial.parseInt();
                 update.key = SETTING_TYPE::battery_id;
-                update.value = String(id);
+
                 xQueueSend(settingUpdateQueue, &update, portMAX_DELAY);
                 vTaskDelay(10);
                 break;

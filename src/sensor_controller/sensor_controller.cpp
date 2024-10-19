@@ -3,8 +3,6 @@
 void SensorController::sensorTask(void *pvParameters) {
 	INA226 INA = INA226(0x40);
 
-	INA.begin();
-
     raw_data = new INA226Data(&settings.battery_id);
 
 	if (!INA.begin() && Serial.isConnected())
